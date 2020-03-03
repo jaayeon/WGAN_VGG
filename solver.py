@@ -140,7 +140,7 @@ class Solver(object):
 
         if self.opt.mode == 'test':
             if self.opt.resume_best : # resume_best
-                loss_list = list(map(lambda x : float(os.path.basename(x).split('_')[-1][:-5])), checkpoint_list)
+                loss_list = list(map(lambda x : float(os.path.basename(x).split('_')[-1][:-4]), checkpoint_list))
                 best_loss_idx = loss_list.index(min(loss_list))
                 f =checkpoint_list[best_loss_idx]
             else : # last checkpoint
