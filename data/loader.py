@@ -173,6 +173,8 @@ def get_train_loader(opt, mode = 'train'):
 def get_test_list(opt, mode = 'test'):
     opt.img_dir = 'D:/data/denoising/test/mayo/quarter_3mm/L506'
     opt.gt_img_dir = 'D:/data/denoising/test/mayo/full_3mm/L506'
+    # opt.img_dir = 'D:/data/denoising/test/mayo/quarter_1mm/L506'
+    # opt.gt_img_dir = 'D:/data/denoising/test/mayo/full_1mm/L506'
     img_list = [os.path.join(opt.img_dir, x) for x in os.listdir(opt.img_dir)]
     gt_img_list = [os.path.join(opt.gt_img_dir, x) for x in os.listdir(opt.gt_img_dir)]
     return img_list, gt_img_list

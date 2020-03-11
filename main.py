@@ -55,8 +55,10 @@ if __name__ == "__main__":
     parser.add_argument('--test_patient', type=str, default='L506')
     parser.add_argument('--result_fig', type=bool, default=True)
 
-    parser.add_argument('--norm_range_min', type=float, default=-1024.0)
-    parser.add_argument('--norm_range_max', type=float, default=3072.0)
+    # parser.add_argument('--norm_range_min', type=float, default=-1024.0)
+    # parser.add_argument('--norm_range_max', type=float, default=3072.0)
+    parser.add_argument('--norm_range_min', type=float, default=-1000.0)
+    parser.add_argument('--norm_range_max', type=float, default=400.0)
     parser.add_argument('--trunc_min', type=float, default=-160.0)
     parser.add_argument('--trunc_max', type=float, default=240.0)
 

@@ -4,15 +4,27 @@ from math import exp
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+from skimage.measure import compare_ssim
+from skimage.measure import compare_psnr
+
 def compute_measure(x, y, pred, data_range):
+
+    # x = x.cpu().numpy()
+    # y = y.cpu().numpy()
+    # pred_psnr = compare_psnr(y, pred)
+    # pred_ssim = compare_ssim(y, pred)
+    # original_psnr = compare_psnr(y, x)
+    # original_ssim = compare_ssim(y, x)
+    # original_rmse = 0
+    # pred_rmse = 0
+
     original_psnr = compute_PSNR(x, y, data_range)
-    original_ssim = 0
-    # original_ssim = compute_SSIM(x, y, data_range)
+    original_ssim = compute_SSIM(x, y, data_range)
     original_rmse = compute_RMSE(x, y)
     pred_psnr = compute_PSNR(pred, y, data_range)
-    # pred_ssim = compute_SSIM(pred, y, data_range)
-    pred_ssim=0
+    pred_ssim = compute_SSIM(pred, y, data_range)
     pred_rmse = compute_RMSE(pred, y)
+
     return (original_psnr, original_ssim, original_rmse), (pred_psnr, pred_ssim, pred_rmse)
 
 

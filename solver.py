@@ -187,6 +187,12 @@ class Solver(object):
         image = image * (self.norm_range_max - self.norm_range_min) + self.norm_range_min
         return image
 
+    def normalize_(self, image):
+        min_t = self.trunc_min
+        max_t = self.trunc_max
+        image = (image-min_t)/(max_t-min_t)
+        return image
+
 
     def trunc(self, mat):
         mat[mat <= self.trunc_min] = self.trunc_min
@@ -309,7 +315,7 @@ class Solver(object):
                     ps)
                 )
 
-
+    """ #no trunc
     def test(self):
         del self.WGANVGG
         # load
@@ -380,39 +386,90 @@ class Solver(object):
             app = pred_psnr_avg/(img_idx+1)
             aps = pred_ssim_avg/(img_idx+1)
             print("((ORIGIN)) PSNR : {:.5f}, SSIM : {:.5f}, ((PREP)) PSNR : {:.5f}, SSIM : {:.5f}".format(aop,aos,app,aps))
+    """
+    #trunc
+    def test(self):
+        del self.WGANVGG
+        # load
+        self.WGANVGG_G = WGAN_VGG_generator().to(self.device)
+        self.load_model()
 
+        # compute PSNR, SSIM, RMSE
+        ori_psnr_avg, ori_ssim_avg= 0, 0
+        pred_psnr_avg, pred_ssim_avg = 0, 0
 
-                # for i, (x, y) in enumerate(img_patch_dataloader):
+        with torch.no_grad():
+            num_total_img = len(self.test_list)
+            for img_idx, img_path in enumerate(self.test_list):
+                img_name = os.path.basename(img_path)
+                img_path = os.path.abspath(img_path)
+                print("[{}/{}] processing {}".format(img_idx, num_total_img, os.path.abspath(img_path)))
+                
+                gt_img_path = self.test_gt_list[img_idx]
+                gt_img = imread(gt_img_path)
+                input_img = imread(img_path)
+                img_patch_dataset = ImageDataset(self.opt, input_img)
+                img_patch_dataloader = DataLoader(dataset=img_patch_dataset,
+                                            batch_size=self.opt.batch_size,
+                                            shuffle=False)
 
-                #     shape_ = x.shape[-1]
-                #     x = x.unsqueeze(0).float().to(self.device)
-                #     y = y.unsqueeze(0).float().to(self.device)
+                img_shape = img_patch_dataset.get_img_shape()
+                pad_img_shape = img_patch_dataset.get_padded_img_shape()
+                
+                out_list =[]
 
-                #     pred = self.WGANVGG_G(x)
+                for i, x in enumerate(img_patch_dataloader):
 
-                #     # denormalize, truncate
-                #     x = self.trunc(self.denormalize_(x.view(shape_, shape_).cpu().detach()))
-                #     y = self.trunc(self.denormalize_(y.view(shape_, shape_).cpu().detach()))
-                #     pred = self.trunc(self.denormalize_(pred.view(shape_, shape_).cpu().detach()))
+                    x = x.float().to(self.device)
 
-                #     data_range = self.trunc_max - self.trunc_min
+                    pred = self.WGANVGG_G(x)
+                    pred = pred.to('cpu').detach().numpy()
+                    out_list.append(pred)
 
-                #     original_result, pred_result = compute_measure(x, y, pred, data_range)
-                #     ori_psnr_avg += original_result[0]
-                #     ori_ssim_avg += original_result[1]
-                #     ori_rmse_avg += original_result[2]
-                #     pred_psnr_avg += pred_result[0]
-                #     pred_ssim_avg += pred_result[1]
-                #     pred_rmse_avg += pred_result[2]
+                out = np.concatenate(out_list, axis = 0)
+                out = out.squeeze()
 
-                #     # save result figure
-                #     if self.result_fig:
-                #         self.save_fig(x, y, pred, i, original_result, pred_result)
+                img_name = 'out-'+img_name
+                base_name = os.path.basename(self.opt.checkpoint_dir)
+                test_result_dir = os.path.join(self.opt.test_result_dir, base_name)
+                if not os.path.exists(test_result_dir):
+                    os.makedirs(test_result_dir)
+                dst_img_path = os.path.join(test_result_dir, img_name)
 
-                #     printProgressBar(i, len(self.data_loader),
-                #                     prefix="Compute measurements ..",
-                #                     suffix='Complete', length=25)
-                # print('\n')
-                # print('Original\nPSNR avg: {:.4f} \nSSIM avg: {:.4f} \nRMSE avg: {:.4f}'.format(ori_psnr_avg/len(self.data_loader), ori_ssim_avg/len(self.data_loader), ori_rmse_avg/len(self.data_loader)))
-                # print('After learning\nPSNR avg: {:.4f} \nSSIM avg: {:.4f} \nRMSE avg: {:.4f}'.format(pred_psnr_avg/len(self.data_loader), pred_ssim_avg/len(self.data_loader), pred_rmse_avg/len(self.data_loader)))
+                out_img = mp.recon_patches(out, pad_img_shape[1], pad_img_shape[0], self.opt.patch_size, self.opt.patch_offset)
+                out_img = mp.unpad_img(out_img, self.opt.patch_offset, img_shape)
 
+                input_img = torch.Tensor(input_img)
+                out_img = torch.Tensor(out_img)
+                gt_img = torch.Tensor(gt_img)
+                input_img = self.trunc(self.denormalize_(input_img).cpu().detach())
+                out_img = self.trunc(self.denormalize_(out_img).cpu().detach())
+                gt_img = self.trunc(self.denormalize_(gt_img).cpu().detach())
+
+                # x = self.trunc(self.denormalize_(x))
+                # out_img = self.trunc(self.denormalize_(out_img))
+                # gt_img = self.trunc(self.denormalize_(gt_img))
+
+                data_range = self.trunc_max-self.trunc_min
+
+                original_result, pred_result = compute_measure(input_img, gt_img, out_img, data_range)
+
+                op, oos, _ = original_result
+                pp, ps, _ = pred_result
+
+                ori_psnr_avg += op
+                ori_ssim_avg += oos
+                pred_psnr_avg += pp
+                pred_ssim_avg += ps
+
+                out_img = self.normalize_(out_img)
+                out_img = out_img.cpu().numpy()
+                imsave(dst_img_path, out_img)
+
+            aop = ori_psnr_avg/(img_idx+1)
+            aos = ori_ssim_avg/(img_idx+1)
+            app = pred_psnr_avg/(img_idx+1)
+            aps = pred_ssim_avg/(img_idx+1)
+            print("((ORIGIN)) PSNR : {:.5f}, SSIM : {:.5f}, ((PREP)) PSNR : {:.5f}, SSIM : {:.5f}".format(aop,aos,app,aps))
+
+    
